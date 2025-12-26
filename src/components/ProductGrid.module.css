@@ -1,0 +1,30 @@
+.gridContainer {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 items per row mobile */
+    gap: 0.5rem;
+    padding: 0.5rem;
+}
+
+@media (min-width: 768px) {
+    .gridContainer {
+        grid-template-columns: repeat(4, 1fr);
+        /* 4 items per row tablet */
+        gap: 1rem;
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .gridContainer {
+        grid-template-columns: repeat(5, 1fr);
+        /* 5 items per row desktop */
+    }
+}
+
+@media (min-width: 1280px) {
+    .gridContainer {
+        grid-template-columns: repeat(6, 1fr);
+        /* 6 items per row distinct large screens */
+    }
+}

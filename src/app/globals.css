@@ -1,0 +1,39 @@
+:root {
+    --primary-color: #f68b1e;
+    /* Jumia/Killimall Orange */
+    --secondary-color: #264996;
+    --text-color: #333;
+    --bg-color: #f5f5f5;
+    --white: #ffffff;
+    --gray-100: #f1f1f1;
+    --gray-200: #ddd;
+}
+
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+main {
+    min-height: 100vh;
+    padding-bottom: 70px;
+    /* Space for bottom nav on mobile */
+}
+
+@media (min-width: 768px) {
+    main {
+        padding-bottom: 0;
+    }
+}

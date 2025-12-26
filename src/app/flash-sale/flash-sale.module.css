@@ -1,0 +1,92 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.banner {
+    background: linear-gradient(90deg, #f68b1e 0%, #ffad5c 100%);
+    border-radius: 0.5rem;
+    padding: 2rem;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.bannerContent {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.timerBlock {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.timerLabel {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.timer {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .banner {
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .titleRow {
+        justify-content: center;
+    }
+
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
