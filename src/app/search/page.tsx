@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import styles from './search.module.css';
 
-export default function SearchPage() {
+import { Suspense } from 'react';
+
+function SearchResults() {
     const searchParams = useSearchParams();
     const query = searchParams.get('q');
     const [products, setProducts] = useState<any[]>([]);
@@ -69,5 +71,13 @@ export default function SearchPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function SearchPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading search...</div>}>
+            <SearchResults />
+        </Suspense>
     );
 }
