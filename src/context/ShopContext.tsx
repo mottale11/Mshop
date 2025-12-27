@@ -18,6 +18,7 @@ interface ShopContextType {
     updateQuantity: (id: any, qty: number) => void;
     toggleWishlist: (product: any) => void;
     isInWishlist: (id: any) => boolean;
+    clearCart: () => void;
 }
 
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
@@ -99,6 +100,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
                 updateQuantity,
                 toggleWishlist,
                 isInWishlist,
+                clearCart: () => setCart([]),
             }}
         >
             {children}

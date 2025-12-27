@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, ShoppingCart, User, Menu, Heart, Package, MessageSquare, LogOut, ChevronDown } from 'lucide-react';
 import styles from './Header.module.css';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { useAuth } from './AuthProvider';
 import { useShop } from '@/context/ShopContext';
@@ -13,6 +14,8 @@ export default function Header() {
     const { cart } = useShop();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const router = useRouter();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -32,20 +35,29 @@ export default function Header() {
         await signOut();
     };
 
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
+
     return (
         <header className={styles.header}>
             {/* Desktop View */}
             <div className={styles.desktopHeader}>
                 <Link href="/" className={styles.logo}>M-Shop</Link>
 
-                <div className={styles.searchBar}>
+                <form className={styles.searchBar} onSubmit={handleSearch}>
                     <input
                         type="text"
                         placeholder="Search products, brands and categories"
                         className={styles.searchInput}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <button className={styles.searchButton}>SEARCH</button>
-                </div>
+                    <button type="submit" className={styles.searchButton}>SEARCH</button>
+                </form>
 
                 <div className={styles.actions}>
                     {user ? (
@@ -120,14 +132,16 @@ export default function Header() {
                         <ShoppingCart size={24} />
                     </Link>
                 </div>
-                <div className={styles.mobileSearchBar}>
+                <form className={styles.mobileSearchBar} onSubmit={handleSearch}>
                     <Search size={18} className={styles.searchIconOverlay} />
                     <input
                         type="text"
                         placeholder="I am searching for..."
                         className={styles.mobileSearchInput}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                </div>
+                </form>
             </div>
         </header>
     );

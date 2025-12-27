@@ -14,10 +14,12 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     const { addToCart, toggleWishlist, isInWishlist } = useShop();
     const isSaved = isInWishlist(product.id);
     const [activeThumb, setActiveThumb] = useState(0);
+    const [showLightbox, setShowLightbox] = useState(false);
 
     if (!product) return <div>Loading...</div>;
 
     const images = (product.images && product.images.length > 0) ? product.images : (product.image_url ? [product.image_url] : []);
+    const currentImage = images[activeThumb] || images[0];
 
     const handleAddToCart = () => {
         addToCart(product);
@@ -28,9 +30,13 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         <div className={styles.container}>
             <div className={styles.topSection}>
                 <div className={styles.gallery}>
-                    <div className={styles.mainImage}>
+                    <div
+                        className={styles.mainImage}
+                        onClick={() => setShowLightbox(true)}
+                        style={{ cursor: 'zoom-in' }}
+                    >
                         {images.length > 0 ? (
-                            <img src={images[activeThumb] || images[0]} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src={currentImage} alt={product.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         ) : (
                             <div style={{ width: '100%', height: '100%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Image</div>
                         )}
@@ -109,6 +115,57 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 <h3 className={styles.sectionTitle}>Related Products</h3>
                 <ProductGrid />
             </div>
+
+            {/* Lightbox Overlay */}
+            {showLightbox && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        zIndex: 2000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'zoom-out'
+                    }}
+                    onClick={() => setShowLightbox(false)}
+                >
+                    <img
+                        src={currentImage}
+                        alt={product.title}
+                        style={{
+                            maxWidth: '90vw',
+                            maxHeight: '90vh',
+                            objectFit: 'contain',
+                            borderRadius: '4px',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                        style={{
+                            position: 'absolute',
+                            top: '20px',
+                            right: '20px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'white',
+                            cursor: 'pointer'
+                        }}
+                        onClick={() => setShowLightbox(false)}
+                    >
+                        {/* Inline X icon SVG for simplicity or text */}
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

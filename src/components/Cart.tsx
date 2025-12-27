@@ -3,10 +3,14 @@
 import React from 'react';
 import styles from './Cart.module.css';
 import { Trash2, Minus, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useShop } from '@/context/ShopContext';
+
+import RecommendedProducts from './RecommendedProducts';
 
 export default function Cart() {
     const { cart, removeFromCart, updateQuantity } = useShop();
+    const router = useRouter();
 
     const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
 
@@ -63,11 +67,18 @@ export default function Cart() {
                         <span>Total</span>
                         <span>KSh {(subtotal + (cart.length > 0 ? 200 : 0)).toLocaleString()}</span>
                     </div>
-                    <button className={styles.checkoutBtn} disabled={cart.length === 0} style={{ opacity: cart.length === 0 ? 0.5 : 1 }}>
+                    <button
+                        className={styles.checkoutBtn}
+                        disabled={cart.length === 0}
+                        style={{ opacity: cart.length === 0 ? 0.5 : 1 }}
+                        onClick={() => router.push('/checkout')}
+                    >
                         CHECKOUT (KSh {(subtotal + (cart.length > 0 ? 200 : 0)).toLocaleString()})
                     </button>
                 </div>
             </div>
+
+            <RecommendedProducts />
         </div>
     );
 }

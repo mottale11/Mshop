@@ -1,40 +1,78 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import styles from './admin.module.css';
 import { DollarSign, ShoppingBag, Users, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
-// Revalidate dashboard data every 60 seconds
-export const revalidate = 60;
+export default function AdminDashboard() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalSales: 0,
+        totalOrders: 0,
+        totalCustomers: 0
+    });
+    const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
-export default async function AdminDashboard() {
-    // Check for admin session (Basic check, middleware should handle security)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        // redirect('/login'); // Commented out to avoid redirect loops during dev if middleware is missing
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        try {
+            // Check session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                // router.push('/login'); // Optional: redirect if not logged in
+            }
+
+            // Parallel Data Fetching
+            const salesPromise = supabase.from('orders').select('total_amount').neq('status', 'Cancelled');
+            const ordersCountPromise = supabase.from('orders').select('*', { count: 'exact', head: true });
+            // For customers, counting unique users in orders or profiles with generic query
+            const customersCountPromise = supabase.from('profiles').select('*', { count: 'exact', head: true }); // Removed .eq('role', 'customer') incase role is missing
+
+            const recentOrdersPromise = supabase
+                .from('orders')
+                .select(`
+                    *,
+                    profiles:user_id (first_name, last_name, email)
+                `)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const [salesResult, ordersCountResult, customersCountResult, recentOrdersResult] = await Promise.all([
+                salesPromise,
+                ordersCountPromise,
+                customersCountPromise,
+                recentOrdersPromise
+            ]);
+
+            // Calculate Total Sales (Sum of non-cancelled orders)
+            const totalSales = salesResult.data?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
+            const totalOrders = ordersCountResult.count || 0;
+            const totalCustomers = customersCountResult.count || 0;
+            const recentOrdersData = recentOrdersResult.data || [];
+
+            setStats({
+                totalSales,
+                totalOrders,
+                totalCustomers
+            });
+            setRecentOrders(recentOrdersData);
+
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return <div style={{ padding: '2rem' }}>Loading dashboard...</div>;
     }
-
-    // Parallel Data Fetching
-    const salesPromise = supabase.from('orders').select('total_amount');
-    const ordersCountPromise = supabase.from('orders').select('*', { count: 'exact', head: true });
-    const customersCountPromise = supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer');
-    const recentOrdersPromise = supabase
-        .from('orders')
-        .select('*, profiles(first_name, last_name)') // Join with profiles
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-    const [salesResult, ordersCountResult, customersCountResult, recentOrdersResult] = await Promise.all([
-        salesPromise,
-        ordersCountPromise,
-        customersCountPromise,
-        recentOrdersPromise
-    ]);
-
-    // Calculate Total Sales
-    const totalSales = salesResult.data?.reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0) || 0;
-    const totalOrders = ordersCountResult.count || 0;
-    const totalCustomers = customersCountResult.count || 0;
-    const recentOrders = recentOrdersResult.data || [];
 
     return (
         <div>
@@ -49,7 +87,7 @@ export default async function AdminDashboard() {
                         <div>
                             <p style={{ color: '#6b7280', fontSize: '0.875rem', fontWeight: '500' }}>Total Sales</p>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginTop: '0.25rem' }}>
-                                KSh {totalSales.toLocaleString()}
+                                KSh {stats.totalSales.toLocaleString()}
                             </h3>
                         </div>
                         <div style={{ padding: '0.5rem', backgroundColor: '#ecfdf5', borderRadius: '0.375rem', color: '#10b981' }}>
@@ -64,7 +102,7 @@ export default async function AdminDashboard() {
                         <div>
                             <p style={{ color: '#6b7280', fontSize: '0.875rem', fontWeight: '500' }}>Total Orders</p>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginTop: '0.25rem' }}>
-                                {totalOrders}
+                                {stats.totalOrders}
                             </h3>
                         </div>
                         <div style={{ padding: '0.5rem', backgroundColor: '#eff6ff', borderRadius: '0.375rem', color: '#3b82f6' }}>
@@ -79,7 +117,7 @@ export default async function AdminDashboard() {
                         <div>
                             <p style={{ color: '#6b7280', fontSize: '0.875rem', fontWeight: '500' }}>Total Customers</p>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginTop: '0.25rem' }}>
-                                {totalCustomers}
+                                {stats.totalCustomers}
                             </h3>
                         </div>
                         <div style={{ padding: '0.5rem', backgroundColor: '#fef3c7', borderRadius: '0.375rem', color: '#d97706' }}>
@@ -113,7 +151,7 @@ export default async function AdminDashboard() {
                                     </td>
                                     <td style={{ padding: '1rem 1.5rem' }}>
                                         {/* Handle joined profiles data safely */}
-                                        {order.profiles ? `${order.profiles.first_name} ${order.profiles.last_name}` : 'Unknown'}
+                                        {order.profiles ? `${order.profiles.first_name || ''} ${order.profiles.last_name || ''}`.trim() || order.profiles.email : 'Unknown'}
                                     </td>
                                     <td style={{ padding: '1rem 1.5rem' }}>
                                         {new Date(order.created_at).toLocaleDateString()}
@@ -132,7 +170,7 @@ export default async function AdminDashboard() {
                                             {order.status}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '1rem 1.5rem' }}>KSh {order.total_amount}</td>
+                                    <td style={{ padding: '1rem 1.5rem' }}>KSh {order.total_amount.toLocaleString()}</td>
                                 </tr>
                             )) : (
                                 <tr>

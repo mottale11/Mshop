@@ -157,6 +157,16 @@
     color: #854d0e;
 }
 
+.pending {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.cancelled {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
 .orderItems {
     font-size: 0.95rem;
     color: #4b5563;
