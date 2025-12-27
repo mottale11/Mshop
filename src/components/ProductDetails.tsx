@@ -37,7 +37,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     </div>
                     {images.length > 1 && (
                         <div className={styles.thumbnails}>
-                            {images.map((img, idx) => (
+                            {images.map((img: string, idx: number) => (
                                 <div
                                     key={idx}
                                     className={`${styles.thumb} ${activeThumb === idx ? styles.active : ''}`}
