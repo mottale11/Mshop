@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ShoppingBag, ShoppingCart, Users, Settings, LogOut, Zap, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, ShoppingCart, Users, Settings, LogOut, Zap, Image as ImageIcon, List } from 'lucide-react';
 import styles from '@/app/admin/admin.module.css';
 
 const navItems = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Products', href: '/admin/products', icon: ShoppingBag },
+    { name: 'Categories', href: '/admin/categories', icon: List },
     { name: 'Flash Sales', href: '/admin/flash-sale', icon: Zap },
     { name: 'Hero Banners', href: '/admin/banners', icon: ImageIcon },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },

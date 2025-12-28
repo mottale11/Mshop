@@ -150,3 +150,83 @@
         margin-right: 1rem;
     }
 }
+
+/* Form Styles */
+.formGroup {
+    margin-bottom: 1.25rem;
+}
+
+.label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.input,
+.select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    color: #111827;
+    transition: all 0.2s;
+    background-color: #ffffff;
+}
+
+.input:focus,
+.select:focus {
+    outline: none;
+    border-color: #f68b1e;
+    box-shadow: 0 0 0 3px rgba(246, 139, 30, 0.1);
+}
+
+.primaryBtn {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background-color: #f68b1e;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.primaryBtn:hover {
+    background-color: #ea580c;
+    /* Darker orange */
+}
+
+.primaryBtn:active {
+    transform: translateY(1px);
+}
+
+.primaryBtn:disabled {
+    background-color: #fdba74;
+    cursor: not-allowed;
+}
+
+.card {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.cardTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+}

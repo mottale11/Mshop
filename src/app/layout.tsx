@@ -16,6 +16,8 @@ import BottomNav from "@/components/BottomNav";
 import AuthProvider from "@/components/AuthProvider";
 import { ShopProvider } from "@/context/ShopContext";
 
+import Footer from "@/components/Footer";
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
                     <ShopProvider>
                         <Header />
                         {children}
+                        <Footer />
                         <BottomNav />
                     </ShopProvider>
                 </AuthProvider>

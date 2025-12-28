@@ -69,6 +69,30 @@ export default function OrdersPage() {
         if (error) {
             alert('Failed to update status');
         } else {
+            // Send Status Update Email
+            try {
+                // We need to fetch the order with details to send the email, or just pass minimal info if possible.
+                // The API expects 'order' object. Let's find the current order from the 'orders' state to pass it.
+                // Alternatively, simply pass the orderId and let the backend fetch it? 
+                // Currently backend expects full order object. Let's use the local 'orders' state to find the order.
+                const order = orders.find(o => o.id === orderId);
+                if (order && order.profiles?.email) {
+                    await fetch('/api/emails/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'ORDER_STATUS_UPDATE',
+                            to: order.profiles.email,
+                            order: order, // This order object matches what the template expects enough (it has id, shipping_address etc)
+                            status: newStatus
+                        })
+                    });
+                }
+            } catch (emailError) {
+                console.error('Failed to send status email:', emailError);
+                // Don't block the UI update if email fails
+            }
+
             fetchOrders(); // Refresh list
         }
     };

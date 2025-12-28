@@ -80,7 +80,21 @@ export default function CheckoutPage() {
 
             if (itemsError) throw itemsError;
 
-            // 3. Clear Cart and Redirect
+            if (itemsError) throw itemsError;
+
+            // 4. Send Order Confirmation Email
+            await fetch('/api/emails/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'ORDER_PLACED',
+                    to: user.email, // Assuming user.email exists
+                    order: { ...order, shipping_address: formData, payment_method: paymentMethod },
+                    items: cart
+                })
+            });
+
+            // 5. Clear Cart and Redirect
             clearCart();
             router.push('/account/orders');
 

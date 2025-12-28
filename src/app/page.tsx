@@ -5,6 +5,7 @@ import Link from 'next/link';
 import FlashSale from '@/components/FlashSale';
 import ProductCard from '@/components/ProductCard';
 import HeroCarousel from '@/components/HeroCarousel';
+import CategorySidebar from '@/components/CategorySidebar';
 
 import styles from './home.module.css';
 
@@ -33,6 +34,12 @@ export default async function Home() {
         .eq('active', true)
         .order('created_at', { ascending: false });
 
+    // Fetch Categories
+    const { data: categories } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+
     // Transform flashSaleData to match ProductCard expectations
     const flashSaleProducts = flashSaleData?.map((item: any) => ({
         flash_sale_id: item.id, // Unique ID for key
@@ -49,18 +56,7 @@ export default async function Home() {
 
             <div className={styles.mainGrid}>
                 {/* Sidebar Navigation */}
-                <aside className={styles.sidebar}>
-                    <ul className={styles.sidebarList}>
-                        <li><Link href="/category/phones-tablets" className={styles.categoryLink}><Tablet size={18} /> Phones & Tablets</Link></li>
-                        <li><Link href="/category/fashion" className={styles.categoryLink}><Shirt size={18} /> Fashion</Link></li>
-                        <li><Link href="/category/home-office" className={styles.categoryLink}><HomeIcon size={18} /> Home & Office</Link></li>
-                        <li><Link href="/category/computing" className={styles.categoryLink}><Monitor size={18} /> Computing</Link></li>
-                        <li><Link href="/category/electronics" className={styles.categoryLink}><Zap size={18} /> Electronics</Link></li>
-                        <li><Link href="/category/health-beauty" className={styles.categoryLink}><Gift size={18} /> Health & Beauty</Link></li>
-                        <li><Link href="/category/baby-products" className={styles.categoryLink}><Baby size={18} /> Baby Products</Link></li>
-                        <li><Link href="/category/watches" className={styles.categoryLink}><Watch size={18} /> Watches</Link></li>
-                    </ul>
-                </aside>
+                <CategorySidebar categories={categories || []} />
 
                 {/* Hero Carousel Section */}
                 <div className={styles.heroWrapper}>

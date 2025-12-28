@@ -1,0 +1,82 @@
+.footer {
+    background-color: #232f3e;
+    color: white;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    margin-top: 3rem;
+    border-top: 1px solid #ddd;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.paymentMethods {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+}
+
+.paymentImage {
+    height: 40px;
+    object-fit: contain;
+    background-color: white;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+}
+
+.sectionTitle {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    color: #f68b1e;
+    text-transform: uppercase;
+}
+
+.linkList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.linkList li a {
+    color: #ddd;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.15s;
+}
+
+.linkList li a:hover {
+    color: #f68b1e;
+}
+
+.copyright {
+    text-align: center;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+@media (max-width: 768px) {
+    .content {
+        grid-template-columns: 1fr 1fr;
+    }
+}
