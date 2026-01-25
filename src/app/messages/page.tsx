@@ -1,37 +1,47 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './messages.module.css';
 import { Bell, Package, Tag, Info } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+type Notification = {
+    id: number;
+    type: 'order' | 'promo' | 'system';
+    title: string;
+    message: string;
+    created_at: string;
+    read: boolean;
+};
 
 export default function MessagesPage() {
-    // Mock messages
-    const messages = [
-        {
-            id: 1,
-            type: 'order',
-            title: 'Order Delivered',
-            message: 'Your order #12345 has been successfully delivered. Enjoy your purchase!',
-            date: '2 hours ago',
-            read: false,
-        },
-        {
-            id: 2,
-            type: 'promo',
-            title: 'Flash Sale Alert!',
-            message: 'Don\'t miss out on our 50% off flash sale starting in 1 hour.',
-            date: 'Yesterday',
-            read: true,
-        },
-        {
-            id: 3,
-            type: 'system',
-            title: 'Account Update',
-            message: 'Your password was successfully changed.',
-            date: '2 days ago',
-            read: true,
-        },
-    ];
+    const [messages, setMessages] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMessages = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (user) {
+                    const { data, error } = await supabase
+                        .from('notifications')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+                    if (data) setMessages(data as Notification[]);
+                }
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMessages();
+    }, []);
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -39,6 +49,18 @@ export default function MessagesPage() {
             case 'promo': return <Tag size={20} className={styles.iconPromo} />;
             default: return <Info size={20} className={styles.iconSystem} />;
         }
+    };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 172800) return 'Yesterday';
+        return date.toLocaleDateString();
     };
 
     return (
@@ -51,7 +73,9 @@ export default function MessagesPage() {
             </div>
 
             <div className={styles.list}>
-                {messages.length === 0 ? (
+                {loading ? (
+                    <div className={styles.loading}>Loading messages...</div>
+                ) : messages.length === 0 ? (
                     <div className={styles.empty}>
                         <Bell size={48} color="#9ca3af" />
                         <p>No new messages</p>
@@ -65,7 +89,7 @@ export default function MessagesPage() {
                             <div className={styles.content}>
                                 <div className={styles.row}>
                                     <h3 className={styles.msgTitle}>{msg.title}</h3>
-                                    <span className={styles.date}>{msg.date}</span>
+                                    <span className={styles.date}>{formatDate(msg.created_at)}</span>
                                 </div>
                                 <p className={styles.msgBody}>{msg.message}</p>
                             </div>

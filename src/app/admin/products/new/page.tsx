@@ -1,14 +1,15 @@
 'use client';
 
 import styles from '../../admin.module.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import RichTextEditor from '@/components/RichTextEditor';
 
 export default function AddProductPage() {
     const [title, setTitle] = useState('');
-    const [category, setCategory] = useState('Electronics');
+    const [category, setCategory] = useState('');
+    const [categories, setCategories] = useState<{ id: string, name: string }[]>([]);
     const [description, setDescription] = useState('');
     const [shortDescription, setShortDescription] = useState('');
     const [brand, setBrand] = useState('');
@@ -23,6 +24,17 @@ export default function AddProductPage() {
 
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const { data } = await supabase.from('categories').select('id, name').order('name');
+            if (data) {
+                setCategories(data);
+                if (data.length > 0) setCategory(data[0].name);
+            }
+        };
+        fetchCategories();
+    }, []);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -83,10 +95,13 @@ export default function AddProductPage() {
         // Use the first image as the main image_url for backward compatibility
         const mainImageUrl = imageUrls.length > 0 ? imageUrls[0] : '';
 
+        // Ensure category is set (fallback to first available if empty)
+        const finalCategory = category || (categories.length > 0 ? categories[0].name : 'Uncategorized');
+
         const { error } = await supabase.from('products').insert([
             {
                 title,
-                category,
+                category: finalCategory,
                 description,
                 short_description: shortDescription,
                 brand,
@@ -134,12 +149,10 @@ export default function AddProductPage() {
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
                             >
-                                <option>Electronics</option>
-                                <option>Fashion</option>
-                                <option>Home & Garden</option>
-                                <option>Sports</option>
-                                <option>Automotive</option>
-                                <option>Health & Beauty</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                ))}
+                                {categories.length === 0 && <option>Loading...</option>}
                             </select>
                         </div>
                     </div>

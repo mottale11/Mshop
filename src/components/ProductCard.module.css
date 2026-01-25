@@ -6,6 +6,8 @@
     transition: box-shadow 0.2s;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    /* Force full height */
 }
 
 .card:hover {
@@ -47,6 +49,10 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    flex: 1;
+    /* Take remaining space */
+    justify-content: space-between;
+    /* Push content to edges to fill the card */
 }
 
 .title {
@@ -54,9 +60,13 @@
     color: var(--text-color);
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+    height: 2.8em;
+    /* 1.4 * 2 lines = 2.8em fixed height */
 }
 
 .priceRow {

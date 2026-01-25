@@ -9,7 +9,7 @@ import CategorySidebar from '@/components/CategorySidebar';
 
 import styles from './home.module.css';
 
-export const revalidate = 60; // Revalidate every minute for new banners
+export const revalidate = 0; // Disable caching for real-time updates
 
 export default async function Home() {
     // Fetch Products (Daily Picks)

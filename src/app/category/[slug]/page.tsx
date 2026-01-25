@@ -17,7 +17,14 @@ export default async function CategoryPage({
     const rating = sp.rating ? Number(sp.rating) : null;
 
     // Convert slug to potential category name format (e.g. 'electronics' -> 'Electronics')
-    const categoryName = slug.replace(/-/g, ' ');
+    const { data: categoryData } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('slug', slug)
+        .single();
+
+    // Use the actual category name from DB if found, otherwise fallback to formatting the slug
+    const categoryName = categoryData ? categoryData.name : slug.replace(/-/g, ' ');
 
     let query = supabase
         .from('products')
