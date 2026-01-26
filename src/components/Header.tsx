@@ -128,8 +128,27 @@ export default function Header() {
             <div className={styles.mobileHeader}>
                 <div className={styles.mobileTopRow}>
                     <Link href="/" className={styles.logo}>M-Shop</Link>
-                    <Link href="/cart" style={{ color: 'inherit' }}>
+                    <Link href="/cart" style={{ color: 'inherit', position: 'relative' }}>
                         <ShoppingCart size={24} />
+                        {cart.length > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '-8px',
+                                backgroundColor: '#f68b1e',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '18px',
+                                height: '18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold'
+                            }}>
+                                {cart.length}
+                            </span>
+                        )}
                     </Link>
                 </div>
                 <form className={styles.mobileSearchBar} onSubmit={handleSearch}>

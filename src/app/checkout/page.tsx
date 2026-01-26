@@ -5,60 +5,199 @@ import { useRouter } from 'next/navigation';
 import { useShop } from '@/context/ShopContext';
 import { supabase } from '@/lib/supabase';
 import styles from './checkout.module.css';
+import { Plus, Check, Edit2, ChevronDown } from 'lucide-react';
+
+interface Address {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone_prefix: string;
+    phone_number: string;
+    address: string;
+    city: string;
+    region: string;
+    is_default: boolean;
+}
+
+import { kenyaLocations } from '@/data/kenyaLocations';
 
 export default function CheckoutPage() {
     const { cart, clearCart } = useShop();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+    const [showAddForm, setShowAddForm] = useState(false);
+
+    // Form State
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
+        phonePrefix: '+254',
+        phoneNumber: '',
+        additionalPhonePrefix: '+254',
+        additionalPhoneNumber: '',
         address: '',
+        additionalInfo: '',
+        region: '', // Initialize empty to force selection
         city: '',
-        phone: ''
+        isDefault: false
     });
 
     const [paymentMethod, setPaymentMethod] = useState('mpesa');
-
-    // Handle hydration mismatch by mounting only on client
     const [mounted, setMounted] = useState(false);
+
+    // Get available cities based on selected region
+    const availableCities = formData.region ? kenyaLocations[formData.region] || [] : [];
+
     useEffect(() => setMounted(true), []);
 
-    const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
-    const shippingCost = 200; // Consistent with Cart.tsx
-    const total = subtotal + shippingCost;
+    useEffect(() => {
+        checkAuthAndFetchAddresses();
+    }, []);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    const checkAuthAndFetchAddresses = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (!user) {
+                // Redirect if not authenticated
+                router.push('/login?redirect=/checkout');
+                return;
+            }
+
+            // Fetch addresses if user exists
+            const { data } = await supabase
+                .from('user_addresses')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('is_default', { ascending: false });
+
+            if (data && data.length > 0) {
+                setAddresses(data);
+                setSelectedAddressId(data[0].id); // Select default/first
+                setShowAddForm(false);
+            } else {
+                setShowAddForm(true); // No addresses, show form
+            }
+        } catch (error) {
+            console.error('Error fetching addresses:', error);
+        }
     };
 
-    const handlePlaceOrder = async (e: React.FormEvent) => {
+    const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+    const shippingCost = 200;
+    const total = subtotal + shippingCost;
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+
+        let checked = false;
+        if (e.target instanceof HTMLInputElement && type === 'checkbox') {
+            checked = e.target.checked;
+        }
+
+        setFormData(prev => {
+            const newData = {
+                ...prev,
+                [name]: type === 'checkbox' ? checked : value
+            };
+
+            // Reset city if region changes
+            if (name === 'region') {
+                newData.city = '';
+            }
+
+            return newData;
+        });
+    };
+
+    const handleSaveAddress = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
 
-            if (!user) {
-                alert('You must be logged in to place an order.');
+            const { data, error } = await supabase
+                .from('user_addresses')
+                .insert({
+                    user_id: user.id,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    phone_prefix: formData.phonePrefix,
+                    phone_number: formData.phoneNumber,
+                    additional_phone_prefix: formData.additionalPhonePrefix,
+                    additional_phone_number: formData.additionalPhoneNumber,
+                    address: formData.address,
+                    additional_info: formData.additionalInfo,
+                    region: formData.region,
+                    city: formData.city,
+                    is_default: formData.isDefault
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Refresh addresses and select new one
+            await checkAuthAndFetchAddresses();
+            setSelectedAddressId(data.id);
+            setShowAddForm(false);
+
+            // Reset form
+            setFormData({
+                firstName: '',
+                lastName: '',
+                phonePrefix: '+254',
+                phoneNumber: '',
+                additionalPhonePrefix: '+254',
+                additionalPhoneNumber: '',
+                address: '',
+                additionalInfo: '',
+                region: 'Meru',
+                city: '',
+                isDefault: false
+            });
+
+        } catch (error: any) {
+            console.error('Error saving address:', error);
+            if (error.message === 'Not authenticated') {
+                alert('Your session has expired. Please login again.');
                 router.push('/login?redirect=/checkout');
+            } else {
+                alert('Failed to save address.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePlaceOrder = async () => {
+        if (!selectedAddressId) {
+            alert('Please select a shipping address.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert('You must be logged in.');
                 return;
             }
 
-            if (!formData.firstName || !formData.lastName || !formData.address || !formData.city || !formData.phone) {
-                alert('Please fill in all shipping details.');
-                return;
-            }
+            const selectedAddress = addresses.find(a => a.id === selectedAddressId);
 
-            // 1. Create Order
+            // Create Order
             const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .insert({
                     user_id: user.id,
                     total_amount: total,
                     status: 'Pending',
-                    shipping_address: formData,
+                    shipping_address: selectedAddress,
                     payment_method: paymentMethod
                 })
                 .select()
@@ -66,7 +205,7 @@ export default function CheckoutPage() {
 
             if (orderError) throw orderError;
 
-            // 2. Create Order Items
+            // Create Order Items
             const orderItems = cart.map(item => ({
                 order_id: order.id,
                 product_id: item.id,
@@ -74,33 +213,27 @@ export default function CheckoutPage() {
                 price: item.price
             }));
 
-            const { error: itemsError } = await supabase
-                .from('order_items')
-                .insert(orderItems);
-
+            const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
             if (itemsError) throw itemsError;
 
-            if (itemsError) throw itemsError;
-
-            // 4. Send Order Confirmation Email
+            // Send Email (Mocked)
             await fetch('/api/emails/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'ORDER_PLACED',
-                    to: user.email, // Assuming user.email exists
-                    order: { ...order, shipping_address: formData, payment_method: paymentMethod },
+                    to: user.email,
+                    order: { ...order, shipping_address: selectedAddress, payment_method: paymentMethod },
                     items: cart
                 })
             });
 
-            // 5. Clear Cart and Redirect
             clearCart();
             router.push('/account/orders');
 
-        } catch (error: any) {
-            console.error('Checkout error:', error);
-            alert('Failed to place order. Please try again.');
+        } catch (error) {
+            console.error('Checkout Error:', error);
+            alert('Failed to place order.');
         } finally {
             setLoading(false);
         }
@@ -113,7 +246,7 @@ export default function CheckoutPage() {
             <div className={styles.container}>
                 <h1 className={styles.title}>Checkout</h1>
                 <p>Your cart is empty.</p>
-                <button onClick={() => router.push('/')} className={styles.placeOrderBtn} style={{ marginTop: '1rem', width: 'auto', padding: '0.5rem 1rem' }}>
+                <button onClick={() => router.push('/')} className={styles.placeOrderBtn} style={{ marginTop: '1rem', width: 'auto' }}>
                     Continue Shopping
                 </button>
             </div>
@@ -125,78 +258,211 @@ export default function CheckoutPage() {
             <h1 className={styles.title}>Checkout</h1>
 
             <div className={styles.grid}>
-                {/* Left Column: Shipping & Payment */}
+                {/* Left Column */}
                 <div className={styles.forms}>
+
+                    {/* 1. Address Section */}
                     <section className={styles.section}>
-                        <h2 className={styles.sectionTitle}>1. Shipping Address</h2>
-                        <form className={styles.form} onSubmit={handlePlaceOrder}>
-                            <div className={styles.row}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>First Name</label>
-                                    <input
-                                        type="text"
-                                        name="firstName"
-                                        className={styles.input}
-                                        placeholder="John"
-                                        value={formData.firstName}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h2 className={styles.sectionTitle}>1. CUSTOMER ADDRESS</h2>
+                        </div>
+
+                        {!showAddForm && addresses.length > 0 ? (
+                            <>
+                                <div className={styles.addressList}>
+                                    <h3 className={styles.subTitle}>ADDRESS BOOK ({addresses.length})</h3>
+                                    {addresses.map(addr => (
+                                        <div
+                                            key={addr.id}
+                                            className={`${styles.addressCard} ${selectedAddressId === addr.id ? styles.selected : ''}`}
+                                            onClick={() => setSelectedAddressId(addr.id)}
+                                        >
+                                            <div className={styles.radioWrapper}>
+                                                <div className={styles.radioOuter}>
+                                                    {selectedAddressId === addr.id && <div className={styles.radioInner} />}
+                                                </div>
+                                            </div>
+                                            <div className={styles.addressDetails}>
+                                                <div className={styles.addressHeader}>
+                                                    <span className={styles.addressName}>{addr.first_name} {addr.last_name}</span>
+                                                    <button className={styles.editBtn}>Edit <Edit2 size={12} /></button>
+                                                </div>
+                                                <p className={styles.addressText}>{addr.address} | {addr.city} - {addr.region}</p>
+                                                <p className={styles.addressPhone}>{addr.phone_prefix} {addr.phone_number}</p>
+                                                {addr.is_default && <span className={styles.defaultBadge}>DEFAULT ADDRESS</span>}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Last Name</label>
-                                    <input
-                                        type="text"
-                                        name="lastName"
-                                        className={styles.input}
-                                        placeholder="Doe"
-                                        value={formData.lastName}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                </div>
+                                <button className={styles.addAddressBtn} onClick={() => setShowAddForm(true)}>
+                                    <Plus size={16} /> Add address
+                                </button>
+                            </>
+                        ) : (
+                            <div className={styles.formContainer}>
+                                <h3 className={styles.subTitle}>ADD NEW ADDRESS</h3>
+                                <form onSubmit={handleSaveAddress} className={styles.form}>
+                                    <div className={styles.row}>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>First Name</label>
+                                            <input
+                                                type="text"
+                                                name="firstName"
+                                                value={formData.firstName}
+                                                onChange={handleInputChange}
+                                                className={styles.input}
+                                                required
+                                            />
+                                        </div>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Last Name</label>
+                                            <input
+                                                type="text"
+                                                name="lastName"
+                                                value={formData.lastName}
+                                                onChange={handleInputChange}
+                                                className={styles.input}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.row}>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Prefix</label>
+                                            <input
+                                                type="text"
+                                                name="phonePrefix"
+                                                value={formData.phonePrefix}
+                                                onChange={handleInputChange}
+                                                className={styles.input} // Disabled style if needed
+                                                readOnly
+                                            />
+                                        </div>
+                                        <div className={styles.inputGroup} style={{ flex: 2 }}>
+                                            <label className={styles.label}>Phone Number</label>
+                                            <input
+                                                type="text"
+                                                name="phoneNumber"
+                                                value={formData.phoneNumber}
+                                                onChange={handleInputChange}
+                                                placeholder="700 000000"
+                                                className={styles.input}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.row}>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Prefix</label>
+                                            <input
+                                                type="text"
+                                                name="additionalPhonePrefix"
+                                                value={formData.additionalPhonePrefix}
+                                                onChange={handleInputChange}
+                                                className={styles.input}
+                                                readOnly
+                                            />
+                                        </div>
+                                        <div className={styles.inputGroup} style={{ flex: 2 }}>
+                                            <label className={styles.label}>Additional Phone Number</label>
+                                            <input
+                                                type="text"
+                                                name="additionalPhoneNumber"
+                                                value={formData.additionalPhoneNumber}
+                                                onChange={handleInputChange}
+                                                placeholder="Enter your Additional Phone Number"
+                                                className={styles.input}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Address</label>
+                                        <input
+                                            type="text"
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter your Address"
+                                            className={styles.input}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className={styles.inputGroup}>
+                                        <label className={styles.label}>Additional Information</label>
+                                        <input
+                                            type="text"
+                                            name="additionalInfo"
+                                            value={formData.additionalInfo}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter Additional Information"
+                                            className={styles.input}
+                                        />
+                                    </div>
+
+                                    <div className={styles.row}>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>Region</label>
+                                            <select
+                                                name="region"
+                                                value={formData.region}
+                                                onChange={handleInputChange}
+                                                className={styles.select}
+                                            >
+                                                <option value="">Select Region</option>
+                                                {Object.keys(kenyaLocations).sort().map(region => (
+                                                    <option key={region} value={region}>{region}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className={styles.inputGroup}>
+                                            <label className={styles.label}>City</label>
+                                            <select
+                                                name="city"
+                                                value={formData.city}
+                                                onChange={handleInputChange}
+                                                className={styles.select}
+                                                required
+                                                disabled={!formData.region}
+                                            >
+                                                <option value="">Select City</option>
+                                                {availableCities.sort().map(city => (
+                                                    <option key={city} value={city}>{city}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.checkboxGroup}>
+                                        <input
+                                            type="checkbox"
+                                            name="isDefault"
+                                            checked={formData.isDefault}
+                                            onChange={handleInputChange}
+                                            id="set-default"
+                                        />
+                                        <label htmlFor="set-default">Set as Default Address</label>
+                                    </div>
+
+                                    <div className={styles.formActions}>
+                                        {addresses.length > 0 && (
+                                            <button type="button" className={styles.cancelBtn} onClick={() => setShowAddForm(false)}>
+                                                Cancel
+                                            </button>
+                                        )}
+                                        <button type="submit" className={styles.saveBtn} disabled={loading}>
+                                            {loading ? 'Saving...' : 'Save'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.label}>Address</label>
-                                <input
-                                    type="text"
-                                    name="address"
-                                    className={styles.input}
-                                    placeholder="123 Main St"
-                                    value={formData.address}
-                                    onChange={handleInputChange}
-                                    required
-                                />
-                            </div>
-                            <div className={styles.row}>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>City</label>
-                                    <input
-                                        type="text"
-                                        name="city"
-                                        className={styles.input}
-                                        placeholder="Nairobi"
-                                        value={formData.city}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                </div>
-                                <div className={styles.inputGroup}>
-                                    <label className={styles.label}>Phone</label>
-                                    <input
-                                        type="text"
-                                        name="phone"
-                                        className={styles.input}
-                                        placeholder="+254 7..."
-                                        value={formData.phone}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                </div>
-                            </div>
-                        </form>
+                        )}
                     </section>
 
+                    {/* 2. Payment Method */}
                     <section className={styles.section}>
                         <h2 className={styles.sectionTitle}>2. Payment Method</h2>
                         <div className={styles.paymentOptions}>
@@ -210,17 +476,6 @@ export default function CheckoutPage() {
                                     onChange={(e) => setPaymentMethod(e.target.value)}
                                 />
                                 <label htmlFor="mpesa">M-Pesa</label>
-                            </div>
-                            <div className={styles.paymentOption}>
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    id="card"
-                                    value="card"
-                                    checked={paymentMethod === 'card'}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                />
-                                <label htmlFor="card">Credit/Debit Card</label>
                             </div>
                             <div className={styles.paymentOption}>
                                 <input
@@ -243,7 +498,7 @@ export default function CheckoutPage() {
                     <div className={styles.summaryItems}>
                         {cart.map((item) => (
                             <div key={item.id} className={styles.summaryItem}>
-                                <span>{item.title} x {item.qty}</span>
+                                <span style={{ flex: 1 }}>{item.title} x {item.qty}</span>
                                 <span>KSh {(item.price * item.qty).toLocaleString()}</span>
                             </div>
                         ))}
@@ -266,7 +521,7 @@ export default function CheckoutPage() {
                     <button
                         className={styles.placeOrderBtn}
                         onClick={handlePlaceOrder}
-                        disabled={loading}
+                        disabled={loading || showAddForm || !selectedAddressId}
                     >
                         {loading ? 'Processing...' : 'Place Order'}
                     </button>

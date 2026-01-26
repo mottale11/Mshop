@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import styles from './admin.module.css';
-import Sidebar from '@/components/admin/Sidebar';
-import AdminHeader from '@/components/admin/AdminHeader';
+import AuthLayout from './AuthLayout';
 
 export const metadata: Metadata = {
     title: 'M-Shop Admin',
@@ -14,14 +12,8 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className={styles.container}>
-            <Sidebar />
-            <div className={styles.mainWrapper}>
-                <AdminHeader />
-                <main className={styles.content}>
-                    {children}
-                </main>
-            </div>
-        </div>
+        <AuthLayout>
+            {children}
+        </AuthLayout>
     );
 }
