@@ -12,6 +12,7 @@ type Notification = {
     message: string;
     created_at: string;
     read: boolean;
+    link?: string;
 };
 
 export default function MessagesPage() {
@@ -28,6 +29,7 @@ export default function MessagesPage() {
                         .from('notifications')
                         .select('*')
                         .eq('user_id', user.id)
+                        .eq('read', false) // Only fetch unread messages
                         .order('created_at', { ascending: false });
 
                     if (error) throw error;
@@ -63,6 +65,27 @@ export default function MessagesPage() {
         return date.toLocaleDateString();
     };
 
+    const handleMessageClick = (msg: Notification) => {
+        // Optimistic update: Remove from list (as requested "removed from messages")
+        // Or mark as read. User said "remove from messages".
+        setMessages(prev => prev.filter(m => m.id !== msg.id));
+
+        // Update DB
+        supabase.from('notifications').update({ read: true }).eq('id', msg.id).then();
+    };
+
+    const handleReview = (msg: Notification) => {
+        // Mark as read and remove
+        handleMessageClick(msg);
+
+        // Navigate
+        if (msg.link) {
+            window.location.href = msg.link;
+        } else {
+            window.location.href = '/account/orders';
+        }
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.header}>
@@ -82,7 +105,12 @@ export default function MessagesPage() {
                     </div>
                 ) : (
                     messages.map((msg) => (
-                        <div key={msg.id} className={`${styles.messageCard} ${!msg.read ? styles.unread : ''}`}>
+                        <div
+                            key={msg.id}
+                            className={`${styles.messageCard} ${!msg.read ? styles.unread : ''}`}
+                            onClick={() => handleMessageClick(msg)}
+                            style={{ cursor: 'default' }}
+                        >
                             <div className={styles.iconWrapper}>
                                 {getIcon(msg.type)}
                             </div>
@@ -92,6 +120,30 @@ export default function MessagesPage() {
                                     <span className={styles.date}>{formatDate(msg.created_at)}</span>
                                 </div>
                                 <p className={styles.msgBody}>{msg.message}</p>
+
+                                <div className={styles.actions}>
+                                    <button
+                                        className={`${styles.actionBtn} ${styles.btnRead}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleMessageClick(msg); // Marks as read and removes
+                                        }}
+                                    >
+                                        Mark as Read
+                                    </button>
+
+                                    {(msg.type === 'order' || msg.link) && (
+                                        <button
+                                            className={`${styles.actionBtn} ${styles.btnReview}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleReview(msg);
+                                            }}
+                                        >
+                                            Review
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {!msg.read && <div className={styles.dot}></div>}
                         </div>

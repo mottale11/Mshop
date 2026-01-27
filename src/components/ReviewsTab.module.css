@@ -1,0 +1,149 @@
+.container {
+    padding: 1rem 0;
+}
+
+.heading {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 3rem;
+}
+
+/* Left Column: Summary */
+.summaryCard {
+    background-color: #f9f9f9;
+    padding: 1.5rem;
+    border-radius: 8px;
+    /* text-align: center; */
+}
+
+.averageSection {
+    margin-bottom: 1.5rem;
+}
+
+.verifiedText {
+    font-size: 0.8rem;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.scoreBox {
+    background-color: #fff;
+    border: 1px solid #eee;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.bigScore {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #f68b1e;
+}
+
+.totalRatings {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.5rem;
+}
+
+.barList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.barRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.starLabel {
+    width: 10px;
+    font-weight: 500;
+}
+
+.progressTrack {
+    flex: 1;
+    height: 8px;
+    background-color: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progressBar {
+    height: 100%;
+    background-color: #f68b1e;
+    border-radius: 4px;
+}
+
+.countLabel {
+    width: 60px;
+    /* Fixed width for alignment */
+    color: #666;
+    font-size: 0.8rem;
+    text-align: right;
+}
+
+/* Right Column: List */
+.reviewsList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.reviewItem {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1.5rem;
+}
+
+.reviewItem:last-child {
+    border-bottom: none;
+}
+
+.reviewStars {
+    margin-bottom: 0.5rem;
+}
+
+.reviewTitle {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.reviewBody {
+    color: #555;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.reviewMeta {
+    font-size: 0.8rem;
+    color: #999;
+}
+
+.author {
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+}

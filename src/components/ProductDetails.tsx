@@ -5,6 +5,8 @@ import styles from './ProductDetails.module.css';
 import { Star, ShoppingCart, Heart } from 'lucide-react';
 import ProductGrid from './ProductGrid';
 import { useShop } from '@/context/ShopContext';
+import ReviewsTab from './ReviewsTab';
+import { supabase } from '@/lib/supabase';
 
 interface ProductDetailsProps {
     product: any; // Define proper interface later
@@ -15,6 +17,27 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     const isSaved = isInWishlist(product.id);
     const [activeThumb, setActiveThumb] = useState(0);
     const [showLightbox, setShowLightbox] = useState(false);
+    const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
+    // State for related products
+    const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+
+    React.useEffect(() => {
+        const fetchRelated = async () => {
+            if (!product.category) return;
+
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .eq('category', product.category)
+                .neq('id', product.id) // Exclude current product
+                .limit(10); // Limit to 10 items
+
+            if (!error && data) {
+                setRelatedProducts(data);
+            }
+        };
+        fetchRelated();
+    }, [product.category, product.id]);
 
     if (!product) return <div>Loading...</div>;
 
@@ -102,18 +125,62 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
             </div>
 
             <div className={styles.section}>
-                <div className={styles.description}>
-                    <h3 className={styles.sectionTitle}>Product Details</h3>
-                    <div
-                        dangerouslySetInnerHTML={{ __html: product.description || 'No description available.' }}
-                        style={{ lineHeight: '1.6', marginTop: '1rem', fontSize: '0.9rem' }}
-                    />
+                {/* Tabs Header */}
+                <div style={{
+                    display: 'flex',
+                    borderBottom: '1px solid #eee',
+                    marginBottom: '1rem',
+                    gap: '2rem'
+                }}>
+                    <button
+                        onClick={() => setActiveTab('details')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            borderBottom: activeTab === 'details' ? '3px solid #f68b1e' : '3px solid transparent',
+                            padding: '0.75rem 0',
+                            fontWeight: 600,
+                            color: activeTab === 'details' ? '#f68b1e' : '#666',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Product Details
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reviews')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            borderBottom: activeTab === 'reviews' ? '3px solid #f68b1e' : '3px solid transparent',
+                            padding: '0.75rem 0',
+                            fontWeight: 600,
+                            color: activeTab === 'reviews' ? '#f68b1e' : '#666',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                        }}
+                    >
+                        Reviews
+                    </button>
                 </div>
+
+                {/* Tab Content */}
+                {activeTab === 'details' ? (
+                    <div className={styles.description}>
+                        {/* <h3 className={styles.sectionTitle}>Product Details</h3> */}
+                        <div
+                            dangerouslySetInnerHTML={{ __html: product.description || 'No description available.' }}
+                            style={{ lineHeight: '1.6', marginTop: '1rem', fontSize: '0.9rem' }}
+                        />
+                    </div>
+                ) : (
+                    <ReviewsTab productId={product.id} />
+                )}
             </div>
 
             <div className={styles.section}>
                 <h3 className={styles.sectionTitle}>Related Products</h3>
-                <ProductGrid />
+                <ProductGrid products={relatedProducts} layout="horizontal" />
             </div>
 
             {/* Lightbox Overlay */}
@@ -158,7 +225,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                         }}
                         onClick={() => setShowLightbox(false)}
                     >
-                        {/* Inline X icon SVG for simplicity or text */}
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>

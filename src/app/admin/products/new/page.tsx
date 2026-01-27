@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import RichTextEditor from '@/components/RichTextEditor';
+import { kenyaLocations } from '@/data/kenyaLocations';
 
 export default function AddProductPage() {
     const [title, setTitle] = useState('');
@@ -17,6 +18,10 @@ export default function AddProductPage() {
     const [size, setSize] = useState('');
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
+
+    // Shipping Fees State
+    const [shippingFees, setShippingFees] = useState<{ county: string, town: string, fee: string }[]>([]);
+    const [newFee, setNewFee] = useState({ county: '', town: '', fee: '' });
 
     // Image Upload State
     const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -70,6 +75,19 @@ export default function AddProductPage() {
         }
     };
 
+    const handleAddFee = () => {
+        if (!newFee.county || !newFee.town || !newFee.fee) {
+            alert('Please fill all shipping fee fields');
+            return;
+        }
+        setShippingFees([...shippingFees, newFee]);
+        setNewFee({ county: '', town: '', fee: '' });
+    };
+
+    const removeFee = (index: number) => {
+        setShippingFees(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -111,6 +129,7 @@ export default function AddProductPage() {
                 stock: parseInt(stock),
                 image_url: mainImageUrl, // Backward compatibility
                 images: imageUrls, // New array column
+                shipping_fees: shippingFees // JSONB column
             }
         ]);
 
@@ -233,6 +252,92 @@ export default function AddProductPage() {
                                 onChange={(e) => setStock(e.target.value)}
                             />
                         </div>
+                    </div>
+
+                    {/* Shipping Fees Section */}
+                    <div style={{ border: '1px solid #e5e7eb', padding: '1.5rem', borderRadius: '0.5rem', backgroundColor: '#f9fafb' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#111' }}>Shipping Fees</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '500' }}>Region</label>
+                                <select
+                                    value={newFee.county}
+                                    onChange={(e) => setNewFee({ ...newFee, county: e.target.value, town: '' })}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.9rem' }}
+                                >
+                                    <option value="">Select Region</option>
+                                    {Object.keys(kenyaLocations).sort().map(region => (
+                                        <option key={region} value={region}>{region}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '500' }}>City/Town</label>
+                                <select
+                                    value={newFee.town}
+                                    onChange={(e) => setNewFee({ ...newFee, town: e.target.value })}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.9rem' }}
+                                    disabled={!newFee.county}
+                                >
+                                    <option value="">Select Town</option>
+                                    <option value="All">All {newFee.county ? `in ${newFee.county}` : ''}</option>
+                                    {newFee.county && kenyaLocations[newFee.county].map(town => (
+                                        <option key={town} value={town}>{town}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '500' }}>Fee (KSh)</label>
+                                <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={newFee.fee}
+                                    onChange={(e) => setNewFee({ ...newFee, fee: e.target.value })}
+                                    style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.9rem' }}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleAddFee}
+                                style={{ padding: '0.5rem 1rem', backgroundColor: '#374151', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', height: '38px' }}
+                            >
+                                Add
+                            </button>
+                        </div>
+
+                        {/* Fees List */}
+                        {shippingFees.length > 0 && (
+                            <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+                                <table style={{ width: '100%', fontSize: '0.875rem', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ color: '#6b7280' }}>
+                                            <th style={{ paddingBottom: '0.5rem' }}>Region</th>
+                                            <th style={{ paddingBottom: '0.5rem' }}>Town</th>
+                                            <th style={{ paddingBottom: '0.5rem' }}>Fee</th>
+                                            <th style={{ paddingBottom: '0.5rem' }}>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {shippingFees.map((fee, idx) => (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                <td style={{ padding: '0.5rem 0' }}>{fee.county}</td>
+                                                <td style={{ padding: '0.5rem 0' }}>{fee.town}</td>
+                                                <td style={{ padding: '0.5rem 0' }}>KSh {parseInt(fee.fee).toLocaleString()}</td>
+                                                <td style={{ padding: '0.5rem 0' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeFee(idx)}
+                                                        style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
 
                     {/* Image Upload Input */}

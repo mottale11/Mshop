@@ -26,6 +26,7 @@ interface OrderItem {
     products: {
         title: string;
         image_url: string;
+        short_description?: string;
     } | null;
 }
 
@@ -105,7 +106,7 @@ export default function OrdersPage() {
             .from('order_items')
             .select(`
                 id, product_id, quantity, price,
-                products (title, image_url)
+                products (title, image_url, short_description)
             `)
             .eq('order_id', order.id);
 
@@ -248,9 +249,10 @@ export default function OrdersPage() {
                                 <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111' }}>Delivery Details</h3>
                                 {selectedOrder.shipping_address ? (
                                     <>
-                                        <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Contact Name:</span> <strong>{selectedOrder.shipping_address.firstName} {selectedOrder.shipping_address.lastName}</strong></div>
-                                        <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Phone:</span> <strong>{selectedOrder.shipping_address.phone}</strong></div>
+                                        <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Contact Name:</span> <strong>{selectedOrder.shipping_address.first_name} {selectedOrder.shipping_address.last_name}</strong></div>
+                                        <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Phone:</span> <strong>{selectedOrder.shipping_address.phone_prefix} {selectedOrder.shipping_address.phone_number}</strong></div>
                                         <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Address:</span> <strong>{selectedOrder.shipping_address.address}, {selectedOrder.shipping_address.city}</strong></div>
+                                        <div style={{ marginBottom: '0.5rem' }}><span style={{ color: '#6b7280' }}>Region:</span> <strong>{selectedOrder.shipping_address.region}</strong></div>
                                     </>
                                 ) : (
                                     <div style={{ color: '#9ca3af' }}>No shipping details available</div>
@@ -292,7 +294,16 @@ export default function OrdersPage() {
                                                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.7rem' }}>No Img</div>
                                                         )}
                                                     </div>
-                                                    <span>{item.products?.title || 'Unknown Product'}</span>
+                                                    <div>
+                                                        <span style={{ display: 'block', fontWeight: '500' }}>{item.products?.title || 'Unknown Product'}</span>
+                                                        {item.products?.short_description && (
+                                                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                                {item.products.short_description.length > 50
+                                                                    ? item.products.short_description.slice(0, 50) + '...'
+                                                                    : item.products.short_description}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td style={{ padding: '0.75rem 1rem' }}>KSh {item.price.toLocaleString()}</td>
                                                 <td style={{ padding: '0.75rem 1rem' }}>{item.quantity}</td>

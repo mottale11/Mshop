@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import styles from '../account.module.css';
 import { supabase } from '@/lib/supabase';
 import { X } from 'lucide-react';
@@ -26,15 +26,27 @@ interface Order {
     order_items: OrderItem[];
 }
 
-export default function OrdersPage() {
+import ReviewModal from '@/components/ReviewModal';
+
+import { useSearchParams } from 'next/navigation';
+
+function OrdersContent() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const searchParams = useSearchParams();
+    const orderIdParam = searchParams.get('orderId');
+
+    // Review Modal State
+    const [reviewModalOpen, setReviewModalOpen] = useState(false);
+    const [reviewProduct, setReviewProduct] = useState({ id: '', title: '', image: '' });
+    const [userId, setUserId] = useState<string>('');
 
     async function fetchOrders() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
+            setUserId(user.id);
 
             const { data, error } = await supabase
                 .from('orders')
@@ -63,6 +75,27 @@ export default function OrdersPage() {
                 console.error('Error fetching orders:', error);
             } else {
                 setOrders(data as any);
+                // Check for deep link param
+                // Check for deep link param
+                if (orderIdParam) {
+                    const targetOrder = (data as any).find((o: Order) => o.id === orderIdParam);
+                    if (targetOrder) {
+                        setSelectedOrder(targetOrder);
+
+                        // Auto-open Review Modal if status is Delivered
+                        if (targetOrder.status === 'Delivered' && targetOrder.order_items?.length > 0) {
+                            const firstItem = targetOrder.order_items[0];
+                            if (firstItem.products) {
+                                setReviewProduct({
+                                    id: firstItem.product_id,
+                                    title: firstItem.products.title,
+                                    image: firstItem.products.image_url || '/placeholder.png'
+                                });
+                                setReviewModalOpen(true);
+                            }
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Unexpected error:', error);
@@ -94,6 +127,15 @@ export default function OrdersPage() {
             console.error('Error requesting refund:', error);
             alert('Failed to submit refund request.');
         }
+    };
+
+    const openReviewModal = (product: any, productId: string) => {
+        setReviewProduct({
+            id: productId,
+            title: product?.title || 'Product',
+            image: product?.image_url || '/placeholder.png'
+        });
+        setReviewModalOpen(true);
     };
 
     if (loading) {
@@ -172,6 +214,25 @@ export default function OrdersPage() {
                                     <div className={styles.productInfo}>
                                         <div className={styles.productName}>{item.products?.title}</div>
                                         <div>Qty: {item.quantity} x KSh {item.price.toLocaleString()}</div>
+
+                                        {/* Review Button if Delivered */}
+                                        {selectedOrder.status === 'Delivered' && (
+                                            <button
+                                                onClick={() => openReviewModal(item.products, item.product_id)}
+                                                style={{
+                                                    marginTop: '0.5rem',
+                                                    padding: '0.25rem 0.5rem',
+                                                    fontSize: '0.8rem',
+                                                    backgroundColor: '#f68b1e',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Write Review
+                                            </button>
+                                        )}
                                     </div>
                                     <div style={{ fontWeight: 'bold' }}>
                                         KSh {(item.quantity * item.price).toLocaleString()}
@@ -220,6 +281,23 @@ export default function OrdersPage() {
                     </div>
                 </div>
             )}
+
+            {/* Review Modal */}
+            <ReviewModal
+                isOpen={reviewModalOpen}
+                onClose={() => setReviewModalOpen(false)}
+                product={reviewProduct}
+                userId={userId}
+                onSuccess={() => { }}
+            />
         </section>
+    );
+}
+
+export default function OrdersPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
+            <OrdersContent />
+        </Suspense>
     );
 }

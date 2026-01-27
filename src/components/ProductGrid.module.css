@@ -28,3 +28,51 @@
         /* 6 items per row distinct large screens */
     }
 }
+
+/* Horizontal Scroll Layout */
+.horizontalContainer {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.75rem;
+    padding: 1rem 0.5rem;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.horizontalContainer::-webkit-scrollbar {
+    height: 6px;
+}
+
+.horizontalContainer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.horizontalContainer::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}
+
+/* Responsive card sizing for horizontal view */
+.horizontalContainer>div {
+    flex: 0 0 140px;
+    /* Smaller mobile width */
+    min-width: 140px;
+}
+
+@media (min-width: 640px) {
+    .horizontalContainer>div {
+        flex: 0 0 160px;
+        /* Tablet */
+        min-width: 160px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .horizontalContainer>div {
+        flex: 0 0 180px;
+        /* Desktop */
+        min-width: 180px;
+    }
+}

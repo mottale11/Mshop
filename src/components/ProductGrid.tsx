@@ -17,15 +17,16 @@ interface Product {
 
 interface ProductGridProps {
     products?: Product[];
+    layout?: 'grid' | 'horizontal';
 }
 
-export default function ProductGrid({ products = [] }: ProductGridProps) {
+export default function ProductGrid({ products = [], layout = 'grid' }: ProductGridProps) {
     if (!products || products.length === 0) {
         return <p style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>No products found.</p>;
     }
 
     return (
-        <div className={styles.gridContainer}>
+        <div className={layout === 'horizontal' ? styles.horizontalContainer : styles.gridContainer}>
             {products.map((product) => (
                 <ProductCard
                     key={product.id}
