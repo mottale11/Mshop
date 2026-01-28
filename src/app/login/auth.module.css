@@ -138,3 +138,23 @@
 .link:hover {
     text-decoration: underline;
 }
+
+.nameRow {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .card {
+        padding: 1.5rem;
+    }
+
+    .nameRow {
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+}

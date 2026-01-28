@@ -55,7 +55,7 @@ export default function RegisterPage() {
                 {error && <div style={{ color: 'red', marginBottom: '1rem', textAlign: 'center' }}>{error}</div>}
 
                 <form className={styles.form} onSubmit={handleRegister}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className={styles.nameRow}>
                         <div className={styles.inputGroup}>
                             <label htmlFor="firstName" className={styles.label}>First Name</label>
                             <input

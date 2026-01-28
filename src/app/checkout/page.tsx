@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useShop } from '@/context/ShopContext';
 import { supabase } from '@/lib/supabase';
 import styles from './checkout.module.css';
-import { Plus, Check, Edit2, ChevronDown } from 'lucide-react';
+import { Plus, Check, Edit2, ChevronDown, Smartphone } from 'lucide-react';
+import mpesaLogo from '@/images/mpesa.png';
+import visaLogo from '@/images/visa.jpeg';
+import mastercardLogo from '@/images/Mastercard Logo.jpeg';
 
 interface Address {
     id: string;
@@ -25,6 +28,7 @@ export default function CheckoutPage() {
     const { cart, clearCart } = useShop();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
@@ -44,7 +48,14 @@ export default function CheckoutPage() {
         isDefault: false
     });
 
-    const [paymentMethod, setPaymentMethod] = useState('mpesa');
+    const [cardDetails, setCardDetails] = useState({
+        number: '',
+        expiry: '',
+        cvc: ''
+    });
+
+    const [paymentMethod, setPaymentMethod] = useState('mpesa'); // mpesa, cod, card
+    const [mpesaPhoneNumber, setMpesaPhoneNumber] = useState('');
     const [mounted, setMounted] = useState(false);
 
     // Get available cities based on selected region
@@ -55,6 +66,17 @@ export default function CheckoutPage() {
     useEffect(() => {
         checkAuthAndFetchAddresses();
     }, []);
+
+    // Sync M-Pesa number with selected address
+    useEffect(() => {
+        if (selectedAddressId) {
+            const address = addresses.find(a => a.id === selectedAddressId);
+            if (address) {
+                // Assuming address.phone_number is the local number (e.g. 712345678)
+                setMpesaPhoneNumber(address.phone_number);
+            }
+        }
+    }, [selectedAddressId, addresses]);
 
     const checkAuthAndFetchAddresses = async () => {
         try {
@@ -86,7 +108,38 @@ export default function CheckoutPage() {
     };
 
     const subtotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
-    const shippingCost = 200;
+
+    // Calculate Shipping
+    const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+    const shippingCost = cart.reduce((total, item) => {
+        if (!selectedAddress) return total + 0; // No address selected = 0 or maintain fallback logic
+
+        // Check for item-specific shipping rules
+        if (item.shipping_fees && item.shipping_fees.length > 0) {
+            // 1. Exact match (Region + City)
+            const exactMatch = item.shipping_fees.find((r: any) =>
+                r.county === selectedAddress.region &&
+                r.town === selectedAddress.city
+            );
+            if (exactMatch) return total + Number(exactMatch.fee);
+
+            // 2. Region match (Town is 'All' or empty)
+            const regionMatch = item.shipping_fees.find((r: any) =>
+                r.county === selectedAddress.region &&
+                (!r.town || r.town === 'All')
+            );
+            if (regionMatch) return total + Number(regionMatch.fee);
+        }
+
+        // Fallback per item if no rule matches (e.g. 200 base)
+        // Or 0 if you only want to charge for specific items.
+        // Assuming strict "shipping fee for EACH product"
+        return total + 0;
+    }, 0);
+
+    // If calculated shipping is 0 and we have items, maybe apply a global fallback?
+    // For now, let's respect the rules. If no rule returns 0.
+
     const total = subtotal + shippingCost;
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -174,13 +227,51 @@ export default function CheckoutPage() {
         }
     };
 
+    const pollPaymentStatus = async (reference: string) => {
+        const maxAttempts = 20; // 20 * 3s = 60s timeout
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+            try {
+                const res = await fetch(`/api/payments/status?reference=${reference}`);
+                const data = await res.json();
+
+                if (data.success && data.data) {
+                    const status = data.data.response.Status;
+                    console.log('Payment Status:', status);
+
+                    if (status === 'SUCCESS') {
+                        return true;
+                    } else if (status === 'FAILED') {
+                        throw new Error(data.data.response.ResultDesc || 'Payment failed');
+                    }
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        throw new Error('Payment timed out. Please try again.');
+    };
+
     const handlePlaceOrder = async () => {
         if (!selectedAddressId) {
             alert('Please select a shipping address.');
             return;
         }
 
+        if (paymentMethod === 'card') {
+            if (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvc) {
+                alert('Please enter your card details.');
+                return;
+            }
+        }
+
         setLoading(true);
+        setProcessingMessage('');
+
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -189,14 +280,92 @@ export default function CheckoutPage() {
             }
 
             const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+            if (!selectedAddress) throw new Error("Address not found");
 
-            // Create Order
+            // MPesa Flow
+            if (paymentMethod === 'mpesa') {
+                if (!mpesaPhoneNumber) {
+                    alert('Please enter an M-Pesa phone number.');
+                    setLoading(false);
+                    return;
+                }
+                setProcessingMessage('Initiating M-Pesa payment... Check your phone.');
+
+                // 1. Initiate STK Push
+                const stkRes = await fetch('/api/payments/stk-push', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        // Combine prefix + number. Assuming prefix is +254.
+                        phone_number: `254${mpesaPhoneNumber.replace(/^0|^254|\+/g, '')}`,
+                        amount: Math.ceil(total),
+                        order_id: `ORDER-${Date.now()}`
+                    })
+                });
+
+                const stkData = await stkRes.json();
+                if (!stkData.success) {
+                    throw new Error(stkData.message || 'Failed to initiate payment');
+                }
+
+                setProcessingMessage('Payment initiated. Please enter your PIN on your phone...');
+
+                // 2. Poll for status
+                await pollPaymentStatus(stkData.data.TransactionReference);
+
+                setProcessingMessage('Payment Successful! Creating order...');
+            } else if (paymentMethod === 'card') {
+                setProcessingMessage('Initiating Card Payment...');
+
+                const cardRes = await fetch('/api/payments/payhero/card', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: Math.ceil(total),
+                        reference: `ORDER-${Date.now()}`,
+                        customer: {
+                            firstName: user.user_metadata?.first_name || 'Guest',
+                            lastName: user.user_metadata?.last_name || 'User',
+                            email: user.email,
+                            phone: `${selectedAddress.phone_prefix}${selectedAddress.phone_number}`,
+                            address: selectedAddress.address,
+                            city: selectedAddress.city,
+                            state: selectedAddress.region,
+                            country: 'KE'
+                        }
+                    })
+                });
+
+                const cardData = await cardRes.json();
+
+                if (!cardData.success) {
+                    throw new Error(cardData.message || 'Failed to initiate card payment');
+                }
+
+                // Inspect response to see if we need to redirect
+                console.log('Card Payment Data:', cardData);
+
+                if (cardData.data.response && cardData.data.response.payment_url) {
+                    window.location.href = cardData.data.response.payment_url;
+                    return; // specific return to stop further execution until callback
+                } else if (cardData.data.redirect_url) {
+                    window.location.href = cardData.data.redirect_url;
+                    return;
+                } else {
+                    // If no redirect, assume success or instruction? 
+                    // For now, let's proceed to order creation, but usually Cards need 3DS.
+                    // If it's pure API without redirect, it might be pending.
+                    setProcessingMessage('Payment initiated. Please check your email/phone for instructions if not redirected.');
+                }
+            }
+
+            // Create Order (Database)
             const { data: order, error: orderError } = await supabase
                 .from('orders')
                 .insert({
                     user_id: user.id,
                     total_amount: total,
-                    status: 'Pending',
+                    status: paymentMethod === 'mpesa' ? 'Paid' : 'Pending', // Mark as Paid if MPesa success
                     shipping_address: selectedAddress,
                     payment_method: paymentMethod
                 })
@@ -231,11 +400,12 @@ export default function CheckoutPage() {
             clearCart();
             router.push('/account/orders');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Checkout Error:', error);
-            alert('Failed to place order.');
+            alert(error.message || 'Failed to place order.');
         } finally {
             setLoading(false);
+            setProcessingMessage('');
         }
     };
 
@@ -466,17 +636,50 @@ export default function CheckoutPage() {
                     <section className={styles.section}>
                         <h2 className={styles.sectionTitle}>2. Payment Method</h2>
                         <div className={styles.paymentOptions}>
-                            <div className={styles.paymentOption}>
-                                <input
-                                    type="radio"
-                                    name="payment"
-                                    id="mpesa"
-                                    value="mpesa"
-                                    checked={paymentMethod === 'mpesa'}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                />
-                                <label htmlFor="mpesa">M-Pesa</label>
+                            <div className={styles.paymentOption} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        type="radio"
+                                        name="payment"
+                                        id="mpesa"
+                                        value="mpesa"
+                                        checked={paymentMethod === 'mpesa'}
+                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                    />
+                                    <label htmlFor="mpesa" style={{ cursor: 'pointer', fontWeight: 500, marginLeft: '0.5rem' }}>M-Pesa</label>
+                                </div>
+                                <img src={mpesaLogo.src} alt="M-Pesa" style={{ height: '35px', objectFit: 'contain' }} />
                             </div>
+
+                            {paymentMethod === 'mpesa' && (
+                                <div style={{
+                                    marginLeft: '1.5rem',
+                                    marginTop: '0.5rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '0.375rem',
+                                    padding: '0.5rem',
+                                    backgroundColor: '#fff',
+                                    maxWidth: '300px'
+                                }}>
+                                    <Smartphone size={20} color="#6b7280" style={{ marginRight: '0.5rem' }} />
+                                    <span style={{ color: '#374151', marginRight: '0.5rem', fontWeight: 500 }}>+254</span>
+                                    <input
+                                        type="text"
+                                        placeholder="712345678"
+                                        value={mpesaPhoneNumber}
+                                        onChange={(e) => setMpesaPhoneNumber(e.target.value)}
+                                        style={{
+                                            border: 'none',
+                                            outline: 'none',
+                                            fontSize: '1rem',
+                                            color: '#1f2937',
+                                            width: '100%'
+                                        }}
+                                    />
+                                </div>
+                            )}
                             <div className={styles.paymentOption}>
                                 <input
                                     type="radio"
@@ -488,6 +691,85 @@ export default function CheckoutPage() {
                                 />
                                 <label htmlFor="cod">Cash on Delivery</label>
                             </div>
+                            <div className={styles.paymentOption} style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        type="radio"
+                                        name="payment"
+                                        id="card"
+                                        value="card"
+                                        checked={paymentMethod === 'card'}
+                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                        style={{ marginRight: '0.5rem' }}
+                                    />
+                                    <label htmlFor="card" style={{ cursor: 'pointer', fontWeight: 500 }}>Pay with Card</label>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <img src={visaLogo.src} alt="Visa" style={{ height: '25px', objectFit: 'contain' }} />
+                                    <img src={mastercardLogo.src} alt="Mastercard" style={{ height: '25px', objectFit: 'contain' }} />
+                                </div>
+                            </div>
+
+                            {paymentMethod === 'card' && (
+                                <div style={{
+                                    marginTop: '1rem',
+                                    padding: '1rem',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '0.375rem',
+                                    backgroundColor: '#f9fafb'
+                                }}>
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>Card Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="0000 0000 0000 0000"
+                                            value={cardDetails.number}
+                                            onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value })}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '0.375rem',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>Expiry Date</label>
+                                            <input
+                                                type="text"
+                                                placeholder="MM/YY"
+                                                value={cardDetails.expiry}
+                                                onChange={(e) => setCardDetails({ ...cardDetails, expiry: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.5rem',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '0.375rem',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>CVV</label>
+                                            <input
+                                                type="text"
+                                                placeholder="123"
+                                                value={cardDetails.cvc}
+                                                onChange={(e) => setCardDetails({ ...cardDetails, cvc: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.5rem',
+                                                    border: '1px solid #d1d5db',
+                                                    borderRadius: '0.375rem',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </section>
                 </div>
@@ -527,6 +809,46 @@ export default function CheckoutPage() {
                     </button>
                 </div>
             </div>
-        </div>
+
+            {/* Simple Loading Overlay */}
+            {
+                loading && processingMessage && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        color: 'white',
+                        padding: '2rem',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            width: '40px',
+                            height: '40px',
+                            border: '4px solid #f3f3f3',
+                            borderTop: '4px solid #f68b1e',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            marginBottom: '1rem'
+                        }}></div>
+                        <style jsx>{`
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    `}</style>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Processing Payment</h2>
+                        <p style={{ fontSize: '1.1rem' }}>{processingMessage}</p>
+                    </div>
+                )
+            }
+        </div >
     );
 }

@@ -8,6 +8,7 @@ export interface CartItem {
     price: number;
     image: string;
     qty: number;
+    shipping_fees?: { county: string; town: string; fee: number }[];
 }
 
 interface ShopContextType {
@@ -60,6 +61,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
                     price: product.price,
                     image: product.image_url || "", // Adapt as needed
                     qty: 1,
+                    shipping_fees: product.shipping_fees || [],
                 },
             ];
         });
