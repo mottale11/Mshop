@@ -233,7 +233,7 @@ export default function CheckoutPage() {
 
         while (attempts < maxAttempts) {
             try {
-                const res = await fetch(`/api/payments/status?reference=${reference}`);
+                const res = await safeFetch(`/api/payments/status?reference=${reference}`);
                 const data = await res.json();
 
                 if (data.success && data.data) {
@@ -254,6 +254,18 @@ export default function CheckoutPage() {
             await new Promise(resolve => setTimeout(resolve, 3000));
         }
         throw new Error('Payment timed out. Please try again.');
+    };
+
+    const safeFetch = async (url: string, options?: RequestInit) => {
+        console.log(`[Checkout] Fetching ${url}`, options);
+        try {
+            const res = await fetch(url, options);
+            console.log(`[Checkout] Response ${res.status} ${res.statusText}`);
+            return res;
+        } catch (error) {
+            console.error(`[Checkout] Network Error for ${url}:`, error);
+            throw error;
+        }
     };
 
     const handlePlaceOrder = async () => {
@@ -292,7 +304,7 @@ export default function CheckoutPage() {
                 setProcessingMessage('Initiating M-Pesa payment... Check your phone.');
 
                 // 1. Initiate STK Push
-                const stkRes = await fetch('/api/payments/stk-push', {
+                const stkRes = await safeFetch('/api/payments/stk-push', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -317,7 +329,7 @@ export default function CheckoutPage() {
             } else if (paymentMethod === 'card') {
                 setProcessingMessage('Initiating Card Payment...');
 
-                const cardRes = await fetch('/api/payments/payhero/card', {
+                const cardRes = await safeFetch('/api/payments/payhero/card', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -386,7 +398,7 @@ export default function CheckoutPage() {
             if (itemsError) throw itemsError;
 
             // Send Email (Mocked)
-            await fetch('/api/emails/send', {
+            await safeFetch('/api/emails/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -60,6 +60,17 @@ export const initiatePayHeroCardPayment = async ({
             body: JSON.stringify(payload)
         });
 
+        if (!response.ok) {
+            const text = await response.text();
+            try {
+                const errorData = JSON.parse(text);
+                throw new Error(errorData.message || `PayHero API Error: ${response.status} ${response.statusText}`);
+            } catch (e) {
+                // If parsing fails, it's likely HTML or text
+                throw new Error(`PayHero API Error (${response.status}): ${text.slice(0, 200)}...`);
+            }
+        }
+
         const data = await response.json();
         return data;
     } catch (error) {

@@ -38,8 +38,13 @@ export async function sendEmail({ to, subject, htmlContent }: EmailPayload) {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(`Brevo API Error: ${JSON.stringify(error)}`);
+            const text = await response.text();
+            try {
+                const error = JSON.parse(text);
+                throw new Error(`Brevo API Error: ${JSON.stringify(error)}`);
+            } catch (e) {
+                throw new Error(`Brevo API Error (${response.status}): ${text.slice(0, 200)}...`);
+            }
         }
 
         return await response.json();
