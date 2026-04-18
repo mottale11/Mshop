@@ -1,25 +1,52 @@
 import { NextResponse } from 'next/server';
-import { checkTransactionStatus } from '@/lib/lipia';
+import { supabase } from '@/lib/supabase';
 
+/**
+ * GET /api/payments/status?checkout_request_id=ws_CO_...
+ *
+ * Polls our own DB (updated by the Safaricom callback) so the frontend
+ * can track payment status without calling Safaricom on every poll.
+ *
+ * Returns:
+ *   { success: true,  status: 'PENDING' | 'SUCCESS' | 'FAILED', receipt?: string }
+ */
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const reference = searchParams.get('reference');
+    const checkoutRequestId = searchParams.get('checkout_request_id');
 
-    if (!reference) {
+    if (!checkoutRequestId) {
         return NextResponse.json(
-            { success: false, message: 'Transaction reference is required' },
+            { success: false, message: 'checkout_request_id is required' },
             { status: 400 }
         );
     }
 
     try {
-        const result = await checkTransactionStatus(reference);
-        return NextResponse.json(result);
+        const { data, error } = await supabase
+            .from('mpesa_transactions')
+            .select('status, mpesa_receipt_number, result_desc, order_id')
+            .eq('checkout_request_id', checkoutRequestId)
+            .single();
+
+        if (error || !data) {
+            return NextResponse.json(
+                { success: false, message: 'Transaction not found' },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json({
+            success: true,
+            status: data.status,              // PENDING | SUCCESS | FAILED
+            receipt: data.mpesa_receipt_number,
+            resultDesc: data.result_desc,
+            orderId: data.order_id,
+        });
 
     } catch (error: any) {
-        console.error('Payment Status Error:', error);
+        console.error('[Payment Status Route] Error:', error);
         return NextResponse.json(
-            { success: false, message: error.message || 'Failed to check status' },
+            { success: false, message: error.message ?? 'Failed to check status' },
             { status: 500 }
         );
     }
