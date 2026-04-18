@@ -26,12 +26,24 @@ export async function GET(request: Request) {
             .from('mpesa_transactions')
             .select('status, mpesa_receipt_number, result_desc, order_id')
             .eq('checkout_request_id', checkoutRequestId)
-            .single();
+            .maybeSingle(); // returns null instead of error when row not found
 
-        if (error || !data) {
+        // Row not yet created (DB insert timing gap) — treat as PENDING
+        if (!data) {
+            return NextResponse.json({
+                success: true,
+                status: 'PENDING',
+                receipt: null,
+                resultDesc: 'Waiting for payment confirmation...',
+                orderId: null,
+            });
+        }
+
+        if (error) {
+            console.error('[Payment Status] DB error:', error);
             return NextResponse.json(
-                { success: false, message: 'Transaction not found' },
-                { status: 404 }
+                { success: false, message: 'Database error' },
+                { status: 500 }
             );
         }
 
