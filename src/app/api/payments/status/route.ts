@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
+
 
 /**
  * GET /api/payments/status?checkout_request_id=ws_CO_...
@@ -22,11 +23,13 @@ export async function GET(request: Request) {
     }
 
     try {
-        const { data, error } = await supabase
+        const adminClient = createAdminClient();
+        const { data, error } = await adminClient
             .from('mpesa_transactions')
             .select('status, mpesa_receipt_number, result_desc, order_id')
             .eq('checkout_request_id', checkoutRequestId)
             .maybeSingle(); // returns null instead of error when row not found
+
 
         // Row not yet created (DB insert timing gap) — treat as PENDING
         if (!data) {

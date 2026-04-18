@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initiateStkPush } from '@/lib/mpesa';
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
+
 
 export async function POST(request: Request) {
     try {
@@ -30,7 +31,8 @@ export async function POST(request: Request) {
         }
 
         // Persist a PENDING transaction row in the database
-        const { error: dbError } = await supabase
+        const adminClient = createAdminClient();
+        const { error: dbError } = await adminClient
             .from('mpesa_transactions')
             .insert({
                 order_id,
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
             // Log but don't block – STK was already sent
             console.error('[M-Pesa] Failed to persist transaction:', dbError);
         }
+
 
         return NextResponse.json({
             success: true,

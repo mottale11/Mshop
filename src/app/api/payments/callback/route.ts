@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
+
 
 /**
  * POST /api/mpesa/callback
@@ -88,7 +89,8 @@ export async function POST(request: Request) {
             transactionUpdate.mpesa_receipt_number = receiptNumber;
         }
 
-        const { data: txn, error: txnError } = await supabase
+        const adminClient = createAdminClient();
+        const { data: txn, error: txnError } = await adminClient
             .from('mpesa_transactions')
             .update(transactionUpdate)
             .eq('checkout_request_id', CheckoutRequestID)
@@ -101,7 +103,7 @@ export async function POST(request: Request) {
 
         // 2. If successful, mark the linked order as Paid
         if (isSuccess && txn?.order_id) {
-            const { error: orderError } = await supabase
+            const { error: orderError } = await adminClient
                 .from('orders')
                 .update({
                     status: 'Paid',
