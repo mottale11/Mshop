@@ -50,6 +50,16 @@ function getBaseUrl(): string {
         : 'https://sandbox.safaricom.co.ke';
 }
 
+/**
+ * MPESA_SHORTCODE_TYPE controls the transaction type.
+ * Set to "till" for Buy Goods (Till) numbers → CustomerBuyGoodsOnline
+ * Set to "paybill" (or leave unset) for Paybill numbers → CustomerPayBillOnline
+ */
+function getTransactionType(): string {
+    const type = process.env.MPESA_SHORTCODE_TYPE ?? 'till';
+    return type === 'paybill' ? 'CustomerPayBillOnline' : 'CustomerBuyGoodsOnline';
+}
+
 function generateTimestamp(): string {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -139,11 +149,12 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
     try {
         const token = await getMpesaToken();
 
+        const transactionType = getTransactionType();
         const payload = {
             BusinessShortCode: shortcode,
             Password: password,
             Timestamp: timestamp,
-            TransactionType: 'CustomerPayBillOnline',
+            TransactionType: transactionType,
             Amount: Math.ceil(amount),       // Safaricom requires integer
             PartyA: phone,
             PartyB: shortcode,
@@ -152,6 +163,8 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
             AccountReference: orderId,
             TransactionDesc: description ?? `Payment for order ${orderId}`,
         };
+
+        console.log('[M-Pesa] TransactionType:', transactionType);
 
         const response = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
             method: 'POST',

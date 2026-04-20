@@ -242,16 +242,19 @@ export default function CheckoutPage() {
                 if (data.success) {
                     if (data.status === 'SUCCESS') return; // done!
                     if (data.status === 'FAILED') {
+                        // ALWAYS stop and surface the real Safaricom error
                         throw new Error(data.resultDesc || 'M-Pesa payment was declined or cancelled.');
                     }
                     // PENDING — keep polling
                 }
             } catch (error: any) {
-                // Re-throw real errors (FAILED), swallow network hiccups
-                if (error.message?.includes('declined') || error.message?.includes('cancelled')) {
-                    throw error;
+                // Re-throw if this is a real payment failure (not a network glitch)
+                // Network errors are TypeError with no meaningful message about payment
+                const isNetworkError = error instanceof TypeError && !error.message?.includes('FAILED') && !error.message?.includes('declined') && !error.message?.includes('cancelled');
+                if (!isNetworkError) {
+                    throw error; // Surface all real errors immediately
                 }
-                console.warn('[Poll] Transient polling error:', error.message);
+                console.warn('[Poll] Transient network error, retrying:', error.message);
             }
             attempts++;
         }
