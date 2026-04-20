@@ -131,8 +131,11 @@ export async function getMpesaToken(): Promise<string> {
 export async function initiateStkPush(params: StkPushParams): Promise<StkPushResult> {
     const { phoneNumber, amount, orderId, description } = params;
 
-    const shortcode = getEnv('MPESA_SHORTCODE');
+    const shortcode = getEnv('MPESA_SHORTCODE');   // Store/Head-office number → BusinessShortCode + password
     const passkey   = getEnv('MPESA_PASSKEY');
+    // For Buy Goods (Till): PartyB must be the Till number, NOT the store number
+    // For Paybill: PartyB == shortcode (same value)
+    const tillNumber = process.env.MPESA_TILL_NUMBER || shortcode;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
         ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://yourdomain.com');
 
@@ -144,20 +147,20 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
     const phone     = formatPhone(phoneNumber);
     const baseUrl   = getBaseUrl();
 
-    console.log('[M-Pesa] Initiating STK Push', { phone, amount, orderId, callbackUrl });
+    console.log('[M-Pesa] Initiating STK Push', { phone, amount, orderId, callbackUrl, shortcode, tillNumber });
 
     try {
         const token = await getMpesaToken();
 
         const transactionType = getTransactionType();
         const payload = {
-            BusinessShortCode: shortcode,
+            BusinessShortCode: shortcode,   // Store number (used for password generation)
             Password: password,
             Timestamp: timestamp,
             TransactionType: transactionType,
             Amount: Math.ceil(amount),       // Safaricom requires integer
             PartyA: phone,
-            PartyB: shortcode,
+            PartyB: tillNumber,              // Till number for Buy Goods, store number for Paybill
             PhoneNumber: phone,
             CallBackURL: callbackUrl,
             AccountReference: orderId,
